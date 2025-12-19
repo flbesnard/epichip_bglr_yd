@@ -51,11 +51,26 @@ DATA_YD=DATA_YD%>%filter( Id %in% ID_list\$V1)
 setDF(DATA_YD)
 rownames(DATA_YD)=DATA_YD\$Id
 
+common_ids <- Reduce(intersect, list(
+  ID_list\$V1,
+  rownames(mrm),
+  rownames(grm),
+  DATA_YD\$Id
+))
+
+grm2 <- grm[common_ids, common_ids]
+
+y_data <- DATA_YD[common_ids, "${trait}"]
+names(y_data) <- common_ids
+
+mrm2 <- mrm[common_ids, common_ids]
+
+
 model1 = BGLR(
-  y= DATA_YD[ID_list\$V1, "${trait}"],
+  y= y_data,
   ETA=list(
-    gebv=list(K=grm, model="RKHS"),
-    met=list(K=mrm, model="RKHS")
+    gebv=list(K=grm2, model="RKHS"),
+    met=list(K=mrm2, model="RKHS")
   ),
   nIter=100000, burnIn=25000, thin=5
 )
@@ -66,7 +81,7 @@ EOF
 #########################################################
 # 2. MODEL 2: GRM ONLY
 #########################################################
-cat <<'EOF' > ${SCRIPT_DIR}/R_script_mod2_${trait}.R
+cat <<EOF > ${SCRIPT_DIR}/R_script_mod2_${trait}.R
 version
 library(data.table)
 library(BGLR)
@@ -87,9 +102,22 @@ setDF(DATA_YD)
 rownames(DATA_YD)=DATA_YD\$Id
 
 
+common_ids <- Reduce(intersect, list(
+  ID_list\$V1,
+  rownames(grm),
+  DATA_YD\$Id
+))
+
+grm2 <- grm[common_ids, common_ids]
+
+y_data <- DATA_YD[common_ids, "${trait}"]
+names(y_data) <- common_ids
+
+
+
 model2 = BGLR(
-  y=DATA_YD[ID_list\$V1, "${trait}"],
-  ETA=list(gebv2=list(K=grm, model="RKHS")),
+  y=y_data,
+  ETA=list(gebv2=list(K=grm2, model="RKHS")),
   nIter=100000, burnIn=25000, thin=5
 )
 
@@ -99,7 +127,7 @@ EOF
 #########################################################
 # 3. MODEL 3: GRM + MCpG
 #########################################################
-cat <<'EOF' > ${SCRIPT_DIR}/R_script_mod3_${trait}.R
+cat <<EOF > ${SCRIPT_DIR}/R_script_mod3_${trait}.R
 version
 library(data.table)
 library(BGLR)
@@ -113,7 +141,7 @@ mat_epi=fread("/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor_imp
 row_ids <- mat_epi[[1]]
 df_epi <- as.data.frame(mat_epi[, -1])
 rownames(df_epi) <- row_ids
-mat2=as.matrix(df_epi)
+mat=as.matrix(df_epi)
 
 grm= fread("/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/grm")
 setDF(grm)
@@ -125,10 +153,26 @@ DATA_YD=DATA_YD%>%filter( Id %in% ID_list\$V1)
 setDF(DATA_YD)
 rownames(DATA_YD)=DATA_YD\$Id
 
+
+common_ids <- Reduce(intersect, list(
+  ID_list\$V1,
+  rownames(grm),
+  rownames(mat),
+  DATA_YD\$Id
+))
+
+grm2 <- grm[common_ids, common_ids]
+
+y_data <- DATA_YD[common_ids, "${trait}"]
+names(y_data) <- common_ids
+
+mat2 <- mat[common_ids,]
+
+
 model3 = BGLR(
-  y= DATA_YD[ID_list\$V1, "${trait}"],
+  y= y_data,
   ETA=list(
-    gebv3=list(K=grm, model="RKHS"),
+    gebv3=list(K=grm2, model="RKHS"),
     metcpg=list(X=mat2, model="BayesC")
   ),
   nIter=100000, burnIn=25000, thin=5
@@ -141,18 +185,13 @@ EOF
 #########################################################
 # 4. MODEL 1BIS: GRM + MRM WITH LEARNING SPLIT
 #########################################################
-cat <<'EOF' > ${SCRIPT_DIR}/R_script_mod1bis_${trait}.R
+cat <<EOF > ${SCRIPT_DIR}/R_script_mod1bis_${trait}.R
 version
 library(data.table)
 library(BGLR)
 library(dplyr)
 
 setwd("${RES_DIR}")
-
-# TODO: Define training/validation split strategy
-# Option 1: Random split
-# Option 2: Stratified split based on some criteria
-# Option 3: Use predefined train/test IDs from file
 
 ID_list=fread("/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered",header=FALSE)
 
@@ -179,16 +218,33 @@ DATA_YD=DATA_YD%>%filter( Id %in% ID_list\$V1)
 setDF(DATA_YD)
 rownames(DATA_YD)=DATA_YD\$Id
 
-# Create y vector with NAs for validation set
-y_train <- DATA_YD[ID_list\$V1, "${trait}"]
-# TODO: Set validation observations to NA
-# y_train[validation_ids\$V1] <- NA
+common_ids <- Reduce(intersect, list(
+  ID_list\$V1,
+  rownames(grm),
+  rownames(mrm),
+  DATA_YD\$Id
+))
+
+grm2 <- grm[common_ids, common_ids]
+
+y_data <- DATA_YD[common_ids, "${trait}"]
+names(y_data) <- common_ids
+
+mrm2 <- mrm[common_ids, common_ids]
+
+
+# keep only validation IDs that are in the model
+val_ids <- intersect(validation_ids\$V1, names(y_data))
+
+# set those phenotypes to NA
+y_data[val_ids] <- NA
+
 
 model1bis = BGLR(
-  y= y_train,
+  y= y_data,
   ETA=list(
-    gebv=list(K=grm, model="RKHS"),
-    met=list(K=mrm, model="RKHS")
+    gebv=list(K=grm2, model="RKHS"),
+    met=list(K=mrm2, model="RKHS")
   ),
   nIter=100000, burnIn=25000, thin=5
 )
@@ -202,7 +258,7 @@ EOF
 #########################################################
 # 5. MODEL 2BIS: GRM ONLY WITH LEARNING/VALIDATION SPLIT
 #########################################################
-cat <<'EOF' > ${SCRIPT_DIR}/R_script_mod2bis_${trait}.R
+cat <<EOF > ${SCRIPT_DIR}/R_script_mod2bis_${trait}.R
 version
 library(data.table)
 library(BGLR)
@@ -227,13 +283,27 @@ DATA_YD=DATA_YD%>%filter( Id %in% ID_list\$V1)
 setDF(DATA_YD)
 rownames(DATA_YD)=DATA_YD\$Id
 
-# Create y vector with NAs for validation set
-y_train <- DATA_YD[ID_list\$V1, "${trait}"]
-y_train[validation_ids\$V1] <- NA
+common_ids <- Reduce(intersect, list(
+  ID_list\$V1,
+  rownames(grm),
+  DATA_YD\$Id
+))
+
+grm2 <- grm[common_ids, common_ids]
+
+y_data <- DATA_YD[common_ids, "${trait}"]
+names(y_data) <- common_ids
+
+# keep only validation IDs that are in the model
+val_ids <- intersect(validation_ids\$V1, names(y_data))
+
+# set those phenotypes to NA
+y_data[val_ids] <- NA
+
 
 model2bis = BGLR(
-  y= y_train,
-  ETA=list(gebv2=list(K=grm, model="RKHS")),
+  y= y_data,
+  ETA=list(gebv2=list(K=grm2, model="RKHS")),
   nIter=100000, burnIn=25000, thin=5
 )
 
