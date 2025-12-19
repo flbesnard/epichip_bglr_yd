@@ -13,6 +13,7 @@ library(broom)
 library(ggplot2)
 library(lme4)
 
+
 LOG <- function(msg){cat(sprintf("[%s] %s\n", Sys.time(), msg))}
 
 DATA_DIR <- "/espace_projets/inrae_gabi/rumigen/DATA/"
@@ -35,14 +36,39 @@ table(Meta_Data_WP6$twin,Meta_Data_WP6$TYP)
 
 ##A enlever les plaques à pb:
 Plaque_pb=c("208455520015","208455520023","208455520014","208455520025")
+##Problèmes de métadonnées, échanges entre 4 samples à remettre :
 
-# sample=c("208454820003",
-# "208454820012",
-# "208455520059",
-# "208455520072")
+# Mapping bidirectionnel des plaques inversées
+swap_map <- c(
+  "208455520032" = "208455520015",
+  "208455520015" = "208455520032",
+  "208455520038" = "208455520023",
+  "208455520023" = "208455520038",
+  "208455520031" = "208455520014",
+  "208455520014" = "208455520031",
+  "208455520043" = "208455520025",
+  "208455520025" = "208455520043"
+)
 
 
-# sample_pb=c("208455520043_R08C01","208455520025_R08C01")#,"208455520031","208455520043","208455520015","208455520023","208455520014","208455520025")
+# Extraction de l'ID plaque
+Meta_Data_WP6[, plaque := substr(Sample_Name, 1, 12)]
+
+# Pass 1 : remplacement avec préfixe temporaire
+Meta_Data_WP6[plaque %in% names(swap_map),
+              Sample_Name := paste0(
+                "TMP_",
+                swap_map[plaque],
+                substr(Sample_Name, 13, nchar(Sample_Name))
+              )]
+
+# Pass 2 : suppression du préfixe temporaire
+Meta_Data_WP6[startsWith(Sample_Name, "TMP_"),
+              Sample_Name := sub("^TMP_", "", Sample_Name)]
+
+# Nettoyage
+Meta_Data_WP6[, plaque := NULL]
+
 
 Meta_Data_WP6_typ=Meta_Data_WP6[TYP==1,][twin!=1,][!(substr(Sample_Name,1,12)%in% Plaque_pb)]
 # Meta_Data_WP6_typ=Meta_Data_WP6_typ[substr(Sample_Name,1,12)%in% sample ]
@@ -144,6 +170,11 @@ DT_long = merge(DT_long, META_for_correction,
 # DT_sample <- DT_long[Marque %in% marques_sample]
 setDT(DT_long)
 DT_long <- as.data.table(DT_long)
+# changer ctl_12722428_BISULFITE CONVERSION II
+# avec
+# ctl_12722428_BISULFITE_CONVERSION_II
+DT_long[,Marque:=ifelse(Marque=="ctl_12722428_BISULFITE CONVERSION II","ctl_12722428_BISULFITE_CONVERSION_II",Marque)]
+
 
 # Préparation une fois pour toutes
 DT_long[, Beta_cor  := {
@@ -158,15 +189,16 @@ DT_long[, Beta_cor  := {
 
 # Transformer en matrice large
 mat <- dcast(DT_long, ANIM ~ Marque, value.var = "Beta_cor", fill = NA)
-write.table(DT_long,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/epi_cor_long",row.names=F,col.names=F,quote=F)
-write.table(mat,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor",row.names=F,col.names=T,quote=F)
+
+
+write.table(DT_long,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/epi_cor_long",row.names=F,col.names=F,quote=T)
+write.table(mat,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor",row.names=F,col.names=T,quote=T)
 
 
 ##Imputation moyenne pour NA:
 mat_epi=fread("/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor")
 
-
-mat_epi[1:5,1:5]
+# mat_epi[1:39169]
 
 # Pour chaque colonne numérique : remplacer les NA par la moyenne de la colonne
 for (j in names(mat_epi)[-1]) {   # -1 si la première colonne est un ID
@@ -177,7 +209,8 @@ for (j in names(mat_epi)[-1]) {   # -1 si la première colonne est un ID
 }
 
 sum(is.na(mat_epi))   # doit afficher 0
-#ok
+#remove last row
+mat_epi=mat_epi[1:(nrow(mat_epi)-1),]
 
 write.table(mat_epi,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor_imputed",row.names=F,col.names=T,quote=F)
 

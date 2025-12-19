@@ -1,6 +1,6 @@
 ###G_matrix creation 
 ##Creation of genomic similarity matrix for a list of animal and a race:
-
+.libPaths("/bao/lib_R3.5.0")
 # Load required libraries
 suppressPackageStartupMessages({
   library(data.table)
