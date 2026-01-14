@@ -18,15 +18,6 @@ RESULTS_DIR="${PROJECT_DIR}/RES"
 
 mkdir -p ${RESULTS_DIR}
 
-##############################################
-### FLAGS D'EXÉCUTION
-##############################################
-RUN_METHYLATION=true
-RUN_GENOMIQUE=true
-RUN_YD=true
-RUN_MODELS=true
-RUN_VALIDATION=true
-RUN_RESULTS=true
 
 
 ##############################################
@@ -37,61 +28,49 @@ echo "===== DÉMARRAGE PIPELINE ====="
 ##############################################
 ### 1. Traitement des données de méthylation
 ##############################################
-if [ "$RUN_METHYLATION" = true ]; then
 echo ">>> Traitement données méthylation"
-Rscript ${SCRIPT_DIR}/01_traitement_methylation.R \
---input ${DATA_DIR}/methylation \
---output ${DATA_DIR}/methylation_processed
-fi
+nohup Rscript350 ${SCRIPT_DIR}/01_traitement_methylation.R &
+
+#Sortie 
+#List des animaux filtrés:
+# /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered
+#Matrice des marques de méthylation filtrées et corrigées:
+# /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor
+#Matrice des marques de méthylation filtrées, corrigées et imputées par la moyenne si Na:
+# /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor_imputed
+
 
 ##############################################
 ### 2. Traitement des données génomiques
 ##############################################
-if [ "$RUN_GENOMIQUE" = true ]; then
+
 echo ">>> Traitement données génomiques"
-Rscript ${SCRIPT_DIR}/02_traitement_genomique.R \
---input ${DATA_DIR}/genomique \
---output ${DATA_DIR}/genomique_processed
-fi
+nohup Rscript350 ${SCRIPT_DIR}/02_traitement_genomique.R /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered 66 &
+
 
 ##############################################
 ### 3. Extraction des YD
 ##############################################
-if [ "$RUN_YD" = true ]; then
 echo ">>> Extraction des YD"
-Rscript ${SCRIPT_DIR}/03_extraction_YD.R \
---phenotypes ${DATA_DIR}/phenotypes \
---output ${DATA_DIR}/YD
-fi
+nohup Rscript350 ${SCRIPT_DIR}/03_extraction_YD.R /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered 66 &
+
 
 ##############################################
-### 4. Lancement des modèles
+### 4. Création des deux échantillons apprentissage/ validation à partir d'une liste d'animaux
 ##############################################
-if [ "$RUN_MODELS" = true ]; then
-echo ">>> Lancement modèles classiques"
 
-# Modèle 1 : ERM + GRM
-bash ${SCRIPT_DIR}/models/run_model1_ERM_GRM.sh
+echo ">>> Création des échantillons apprentissage / validation"
+nohup Rscript350 ${SCRIPT_DIR}/04_creation_pop_appr_valid.R /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered 66 &
 
-# Modèle 2 : GRM seule
-bash ${SCRIPT_DIR}/models/run_model2_GRM.sh
-
-# Modèle 3 : GRM + marques de méthylation
-bash ${SCRIPT_DIR}/models/run_model3_GRM_METH.sh
-fi
 
 ##############################################
-### 4 bis. Modèles apprentissage / validation
+### 4. Lancement des modèles classique et des modèles d'apprentissage / validation
 ##############################################
-if [ "$RUN_VALIDATION" = true ]; then
-echo ">>> Lancement modèles apprentissage / validation"
 
-# Modèle 1 bis : ERM + GRM avec apprentissage
-bash ${SCRIPT_DIR}/models/run_model1bis_learning.sh
+echo 
 
-# Modèle 2 bis : GRM seule avec YD apprentissage
-bash ${SCRIPT_DIR}/models/run_model2bis_learning.sh
-fi
+nohup Rscript350 ${SCRIPT_DIR}/05_lancement_modeles.R /espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered 66 &
+
 
 ##############################################
 ### 5. Extraction et compilation des résultats
