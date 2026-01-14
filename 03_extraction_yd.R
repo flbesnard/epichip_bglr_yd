@@ -1,7 +1,6 @@
 #A partir d’une liste d’individu, d’un nom de projet et de la race des individus:
 #/chemin/vers/Liste_individu $projet $race
 #Extrait les YD de tout les individus depuis le dernier traitement de la bdir,
-    =
 
 #Sortie :
 #Matrice indiv x caractères

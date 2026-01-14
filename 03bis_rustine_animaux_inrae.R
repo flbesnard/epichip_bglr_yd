@@ -8,6 +8,8 @@ library(ggplot2)
 #On vas chercher la liste des caractères extraits
 Liste_car=fread(paste0("/travail/fbesnard/YD/bglr_rumigen/Liste_caracteres_extrait_avec_info"))
 
+#On vas chercher les métadonnées
+META=fread("/travail/fbesnard/YD/bglr_rumigen/Mat_YD_r66")
 
 # Les données brutes et les programmes (sas) pour produire les fichiers indiqués sont sous /home/dboichard/perf_ue_inrae.
 # Les tables extraites par Rachel de Margau sont les fichier csv (animal, production, ia). Je n’ai pas utilisé les autres pour l’instant (nb : voulez vous l’état corporel et les mammites cliniques ?)
@@ -70,46 +72,65 @@ for (i in 1:nrow(corresp)){
     # calculs préalables (plus propre que dans aes)
     m_ue  <- mean(donnees_ue[, V2], na.rm = TRUE)
     sd_ue <- sd(donnees_ue[, V2], na.rm = TRUE)
-    
+
     m_yd  <- mean(donnees_yd_car[, V2], na.rm = TRUE)
     sd_yd <- sd(donnees_yd_car[, V2], na.rm = TRUE)
-    print(
-    ggplot() +
-      geom_histogram(data = donnees_ue, aes(x = V2),
-                     fill = "blue", alpha = 0.5, bins = 50) +
-      geom_vline(xintercept = m_ue,
-                 color = "blue", linetype = "dashed", size = 1) +
-      geom_vline(xintercept = c(m_ue - sd_ue, m_ue + sd_ue),
-                 color = "blue", linetype = "dotted", size = 0.8) +
-      
-      geom_histogram(data = donnees_yd_car, aes(x = V2),
-                     fill = "red", alpha = 0.5, bins = 50) +
-      geom_vline(xintercept = m_yd,
-                 color = "red", linetype = "dashed", size = 1) +
-      geom_vline(xintercept = c(m_yd - sd_yd, m_yd + sd_yd),
-                 color = "red", linetype = "dotted", size = 0.8) +
-      
-      labs(
-        title = paste0("Comparaison des distributions pour le caractère ", nom_yd_car),
-        x = "Valeur",
-        y = "Fréquence"
-      ) +
-      theme_minimal()
-)
+#     print(
+#     ggplot() +
+#       geom_histogram(data = donnees_ue, aes(x = V2),
+#                      fill = "blue", alpha = 0.5, bins = 50) +
+#       geom_vline(xintercept = m_ue,
+#                  color = "blue", linetype = "dashed", size = 1) +
+#       geom_vline(xintercept = c(m_ue - sd_ue, m_ue + sd_ue),
+#                  color = "blue", linetype = "dotted", size = 0.8) +
+#       
+#       geom_histogram(data = donnees_yd_car, aes(x = V2),
+#                      fill = "red", alpha = 0.5, bins = 50) +
+#       geom_vline(xintercept = m_yd,
+#                  color = "red", linetype = "dashed", size = 1) +
+#       geom_vline(xintercept = c(m_yd - sd_yd, m_yd + sd_yd),
+#                  color = "red", linetype = "dotted", size = 0.8) +
+#       
+#       labs(
+#         title = paste0("Comparaison des distributions pour le caractère ", nom_yd_car),
+#         x = "Valeur",
+#         y = "Fréquence"
+#       ) +
+#       theme_minimal()
+# )
     
    ##On enlève les outliers dans la partie prod:
     
     if (corresp$source[i]=="res_ue_prod"){
      donnees_ue=donnees_ue[V2 >= (m_ue - 1.96 * sd_ue) & V2 <= (m_ue + 1.96 * sd_ue)]
 
-      
-      #On fait une transformation pour mimer la loi normale des YD
-    } else if (corresp$source[i]=="res_ue_fert"){
-        #Transformation logit pour la fertilité
-      donnees_ue[, V2 := logit( V2 / 100 ) ]
-
-      
-    }
+    } 
     
+    #on rajoute les YD dans les métadonnées et on sauvegarde sous les métadonnées de la date du jour
+
+    setnames(donnees_ue, "V2", nom_yd_car)
+
+#On mets dans le META les nouvelles données des ue
+    META <- merge(
+      META,
+      donnees_ue,
+      by = "Id",
+      all = TRUE
+    )
+    
+    col_x <- paste0(nom_yd_car, ".x")
+    col_y <- paste0(nom_yd_car, ".y")
+    col   <-  nom_yd_car
+    
+    META[, (col) := ifelse(
+      !is.na(get(col_y)),
+      get(col_y),
+      get(col_x)
+    )]
+
+    META[, c(col_x, col_y) := NULL]
 }
 
+#Création du nouvelle Mat_YD_r66 avec les nouvelles métadonnées
+fichier_yd_with_ue=paste0("/travail/fbesnard/YD/bglr_rumigen/MAT_YD_r66_with_ue_",Sys.Date())
+fwrite(META, fichier_yd_with_ue, sep=";")

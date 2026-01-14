@@ -19,7 +19,8 @@ if(length(args) < 2){
 
 listeANI <- args[1]
 RACE <- args[2]
-#listeANI="/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered"
+#listeANI="/espace_projets/inrae_gabi/rumigen/DATA/Liste_anim_2026-01-14.csv"
+
 # RACE=66
 # -------------------------------
 # Parameters
@@ -91,10 +92,13 @@ all_chr_typages <- data.frame(do.call(cbind, all_chr_list))
 # Assign rownames
 rownames(all_chr_typages) <- ID$V1
 
-ID_list=fread("/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered",header=F)
+ID_list=fread(listeANI,header=F)
 
 # Keep only animals in ID_com
 all_chr_typages <- all_chr_typages[ID_list$V1, , drop = FALSE]
+
+#Remove if non existing obs (only NA )
+all_chr_typages <- all_chr_typages[rowSums(!is.na(all_chr_typages)) > 0, , drop = FALSE]
 
 # Calculate allele frequency p for each SNP:
 # mean(genotype)/2   →   fast columnMeans

@@ -21,7 +21,7 @@ TRAV_DIR <- "/espace_projets/inrae_gabi/rumigen/TRAV/"
 
 # Chargement des fichiers initiaux
 Beta_Value_WP6 <- fread(file.path(DATA_DIR, "Beta_Value_WP6.txt"))
-Meta_Data_WP6 <- fread(file.path(DATA_DIR, "Metadonnees_Consolidees_20250112.csv"))
+Meta_Data_WP6 <- fread(file.path(DATA_DIR, "Metadonnees_Consolidees_.csv"))
 # incoherence <- fread(file.path(DATA_DIR, "incoherence_notations_tubes.csv"))
 
 
@@ -209,7 +209,7 @@ for (j in names(mat_epi)[-1]) {   # -1 si la première colonne est un ID
 }
 
 sum(is.na(mat_epi))   # doit afficher 0
-#remove last row
+#remove last row that is NA animals
 mat_epi=mat_epi[1:(nrow(mat_epi)-1),]
 
 write.table(mat_epi,"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/mat_epi_cor_imputed",row.names=F,col.names=T,quote=F)

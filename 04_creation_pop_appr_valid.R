@@ -19,16 +19,30 @@ if (length(args) != 3) {
 chemin_liste_animaux <- args[1]
 projet <- args[2]
 race <- args[3]
-#chemin_liste_animaux="/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/fr_id_filtered"
+#chemin_liste_animaux="/espace_projets/inrae_gabi/rumigen/DATA/Metadonnees_Consolidees_with_ue_2026-01-14.csv"
 #projet="bglr_rumigen"
 #race=66    
 
 library(data.table)
 # 1. Charger le pedigree
+#Charger chemion vers liste animaux, écrire un fichier avec la première colonne et l'utiliser dans le awk pour extraction ensuite, qu'importe le header du fichier:
 
-MORPHE_DATA=paste0("/travail/fbesnard/MORPHE/DATA/Mortalite_",RACE,".csv")
+MORPHE_DATA=paste0("/travail/fbesnard/MORPHE/DATA/Mortalite_",race,".csv")
 
-Pedigree=as.data.table(system(paste0(" awk  -F\";\" '{if(FILENAME==ARGV[1]){p[$1]=1}; if(FILENAME==ARGV[2]){if(p[$1]==1){print $1,$2,$3,$10}}}' ",chemin_liste_animaux," ",MORPHE_DATA),intern = TRUE))
+Pedigree <- as.data.table(
+  system(
+    paste0(
+      "awk -F';' '",
+      "NR==FNR {p[$1]=1; next} ",
+      "($1 in p) {print $1 \";\" $2 \";\" $4 \";\" $10}",
+      "' ",
+      chemin_liste_animaux, " ",
+      MORPHE_DATA
+    ),
+    intern = TRUE
+  )
+)
+
 col_names=c( "anim","pere","mere","datenai")
 setDT(Pedigree)
 Pedigree[,c(col_names):= tstrsplit(V1, " ", fixed=TRUE)][,V1:=NULL]
@@ -36,7 +50,9 @@ Pedigree[,c(col_names):= tstrsplit(V1, " ", fixed=TRUE)][,V1:=NULL]
 # 2. Séparer en deux échantillons selon la date de naissance
 
 Pedigree[,datenai:=as.Date(datenai,format="%Y-%m-%d")]
-date_cutoff=quantile(Pedigree$datenai,0.8)  
+
+
+date_cutoff=quantile(Pedigree$datenai, 0.8, na.rm = TRUE, type = 1)
 
 # 3. Création des deux échantillons
 Pop_appr=Pedigree[datenai<=date_cutoff]$anim
