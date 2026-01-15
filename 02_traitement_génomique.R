@@ -94,24 +94,22 @@ rownames(all_chr_typages) <- ID$V1
 
 ID_list=fread(listeANI,header=F)
 
+
 # Keep only animals in ID_com
-all_chr_typages <- all_chr_typages[ID_list$V1, , drop = FALSE]
+all_chr<- all_chr_typages[rownames(all_chr_typages) %in% ID_list$V1]
 
 #Remove if non existing obs (only NA )
-all_chr_typages <- all_chr_typages[rowSums(!is.na(all_chr_typages)) > 0, , drop = FALSE]
+all_chr <- all_chr[rowSums(!is.na(all_chr)) > 0, , drop = FALSE]
 
 # Calculate allele frequency p for each SNP:
 # mean(genotype)/2   →   fast columnMeans
 
-p=apply(all_chr_typages,2,mean)/2 
+p=apply(all_chr,2,mean)/2 
 
 s2pq=sum(2*p*(1-p)) 
 
 grm=tcrossprod(scale(all_chr_typages,center = T,scale = F))/s2pq
 
-
-
-
-fwrite(as.data.table(grm),"/espace_projets/inrae_gabi/rumigen/DATA/bglr/grm",sep=" " )
+fwrite(as.data.table(grm),"/espace_projets/inrae_gabi/rumigen/DATA/bglr/data/grm",sep=" " )
 
 quit()
